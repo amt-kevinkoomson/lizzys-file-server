@@ -33,9 +33,7 @@ body {
   border-radius: 0%;
   margin-bottom: -1px;
 }
-#floatingPassword{
-  border-radius: 0%;
-}
+
 .form-signin input[type="password"] {
   margin-bottom: -1px;
   border-top-left-radius: 0;
