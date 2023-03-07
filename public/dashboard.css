@@ -2,3 +2,36 @@ button.nav-link{
     border: 0px;
     border-radius: 15px;
 }
+.upload-form{
+    max-width: 90%;
+    border: 2px solid rgb(220, 218, 218);
+    border-radius: 10px;
+    margin-left: auto;
+    margin-right: auto;
+    background-color: rgb(233, 217, 217);
+    padding: 20px;
+}
+.upload-form button.btn-success{
+    width: 200px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.submit-btn{
+    display: flex;
+    padding: 30px;
+}
+.files{
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-evenly;
+    background-color: rgb(233, 217, 217);
+    padding: 20px;
+}
+.card{
+    width: 18rem;
+    background-color: peachpuff;
+}
+.card li, .card ul{
+    background-color: peachpuff;
+    border-color: grey;
+}

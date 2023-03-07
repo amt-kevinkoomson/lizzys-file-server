@@ -46,9 +46,23 @@ var bcrypt = require('bcrypt');
 var passport = require('passport');
 var flash = require('express-flash');
 var session = require('express-session');
+var multer = require('multer');
+var fileStorageEngine = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, './uploads');
+    },
+    filename: function (req, file, cb) {
+        cb(null, Date.now() + '--' + file.originalname);
+    }
+});
+var upload = multer({
+    storage: fileStorageEngine
+});
 var initializePassport = require('./passport-config');
 app.set('view engine', 'ejs');
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.urlencoded({
+    extended: true
+}));
 app.use(express.static("public"));
 app.use(flash());
 app.use(session({
@@ -69,13 +83,68 @@ app.get("/", checkNotAuthenticated, function (req, res) {
     console.log("GET /");
     res.render('index');
 });
-app.get("/dashboard", checkAuthenticated, function (req, res) {
-    console.log("GET dashboard");
-    res.render('dashboard', { name: req.user.name });
-});
+/**
+ * get arrary of files from fs
+ */
+app.get("/dashboard", checkAuthenticated, function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+    var adminStatus, files;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                console.log("GET dashboard");
+                adminStatus = req.user.admin_status;
+                return [4 /*yield*/, db.query("SELECT * FROM files", function (err, res2) {
+                        console.log(res2.rows);
+                        files = res2.rows;
+                        console.log(typeof files);
+                        res.render('dashboard', {
+                            name: req.user.name,
+                            isAdmin: adminStatus,
+                            items: files
+                        });
+                    })];
+            case 1:
+                _a.sent();
+                return [2 /*return*/];
+        }
+    });
+}); });
 app.get("/signup", checkNotAuthenticated, function (req, res) {
     console.log('GET /signup');
     res.render('signup');
+});
+app.get("/upload", checkAuthenticated, function (req, res) {
+    if (!req.user.admin_status)
+        res.redirect('/dashboard');
+    else
+        res.render('upload', {
+            name: req.user.name,
+            code: null
+        });
+});
+app.post("/upload", checkAuthenticated, upload.single('designFile'), function (req, res) {
+    console.log(req.file);
+    console.log(req.user.id);
+    try {
+        db.query("INSERT INTO files (location, added_by, downloads, sent, title, description, filename) VALUES($1, $2, $3, $4, $5, $6, $7)", [req.file.path, req.user.id, 0, 0, req.body.titleText, req.body.description, req.file.filename], function (err, res2) {
+            if (err)
+                throw err;
+            console.log(res2.command + res2.oid + res2.rowCount);
+            res.render('upload', {
+                name: req.user.name,
+                isAdmin: req.user.admin_status,
+                code: res.statusCode
+            });
+        });
+    }
+    catch (e) {
+        console.log(e);
+        res.render('upload', {
+            name: req.user.name,
+            isAdmin: req.user.admin_status,
+            code: null
+        });
+    }
 });
 app.post("/signup", checkNotAuthenticated, function (req, res) { return __awaiter(_this, void 0, void 0, function () {
     var hash, e_1;
@@ -83,7 +152,6 @@ app.post("/signup", checkNotAuthenticated, function (req, res) { return __awaite
         switch (_a.label) {
             case 0:
                 console.log("POST to /signup");
-                db.connect();
                 _a.label = 1;
             case 1:
                 _a.trys.push([1, 3, , 4]);
@@ -94,7 +162,6 @@ app.post("/signup", checkNotAuthenticated, function (req, res) { return __awaite
                     if (err)
                         throw err;
                     console.log(res);
-                    db.end();
                 });
                 res.render('index');
                 return [3 /*break*/, 4];
@@ -119,6 +186,21 @@ function checkNotAuthenticated(req, res, next) {
     if (req.isAuthenticated())
         return res.redirect('/dashboard');
     next();
+}
+function getAdminStatus(email) {
+    return __awaiter(this, void 0, void 0, function () {
+        var status;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, db.query("SELECT admin_status FROM users WHERE email = $1", [email])];
+                case 1:
+                    status = _a.sent();
+                    if (status === 't')
+                        return [2 /*return*/, true];
+                    return [2 /*return*/, false];
+            }
+        });
+    });
 }
 app.listen(3000, function () {
     console.log('Server running on port 3000\n');
