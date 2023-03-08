@@ -57,18 +57,14 @@ app.get("/", checkNotAuthenticated, (req, res) => {
 });
 
 
-/**
- * get arrary of files from fs
- */
-
 app.get("/dashboard", checkAuthenticated, async (req, res) => {
     console.log("GET dashboard");
     const adminStatus = req.user.admin_status; 
     let files;
-    await db.query("SELECT * FROM files",(err, res2) => {
-        console.log(res2.rows);
+    await db.query("SELECT * FROM files ORDER BY downloads DESC",(err, res2) => {
+        
         files = res2.rows;
-        console.log(typeof files);
+        
         res.render('dashboard', {
             name: req.user.name,
             isAdmin: adminStatus,
@@ -115,6 +111,48 @@ app.post("/upload", checkAuthenticated, upload.single('designFile'), (req, res) 
             code: null
         });
     }
+});
+
+app.get('/download/:fileId', checkAuthenticated, async (req, res) => {
+    const fileId = req.params.fileId;
+    try {
+        await db.query(
+            'SELECT * FROM files WHERE id = $1',
+            [fileId],
+            (err, result) => {
+                const file = result.rows[0];
+                const path = __dirname + '\\' + file.location;
+
+                res.setHeader('Content-Disposition', 'attachment; filename='+ __dirname+'\\'+result.rows[0].filename);
+
+                res.download(path, (err) => {
+                    if (err) throw err;
+                });
+                db.query(
+                    "UPDATE files SET downloads = $1 WHERE id = $2",
+                    [file.downloads +1, fileId],
+                    (err, res3) => {
+                        if (err){
+                            console.error(err);
+                        }
+                        console.log('download record updated');
+                    }
+                )
+            }
+        )
+    } catch(e) {
+        console.log(e);
+    }
+});
+
+app.get('/sendEmail/:fileId', checkAuthenticated, (req, res) => {
+    const fileId = req.params.fileId;
+    res.render('sendEmail', {
+        name: req.user.name,
+        isAdmin: req.user.admin_status,
+        title: 'tbh'
+    })
+    
 });
 
 app.post("/signup", checkNotAuthenticated, async (req, res) => {

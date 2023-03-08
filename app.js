@@ -83,9 +83,6 @@ app.get("/", checkNotAuthenticated, function (req, res) {
     console.log("GET /");
     res.render('index');
 });
-/**
- * get arrary of files from fs
- */
 app.get("/dashboard", checkAuthenticated, function (req, res) { return __awaiter(_this, void 0, void 0, function () {
     var adminStatus, files;
     return __generator(this, function (_a) {
@@ -93,10 +90,8 @@ app.get("/dashboard", checkAuthenticated, function (req, res) { return __awaiter
             case 0:
                 console.log("GET dashboard");
                 adminStatus = req.user.admin_status;
-                return [4 /*yield*/, db.query("SELECT * FROM files", function (err, res2) {
-                        console.log(res2.rows);
+                return [4 /*yield*/, db.query("SELECT * FROM files ORDER BY downloads DESC", function (err, res2) {
                         files = res2.rows;
-                        console.log(typeof files);
                         res.render('dashboard', {
                             name: req.user.name,
                             isAdmin: adminStatus,
@@ -146,8 +141,51 @@ app.post("/upload", checkAuthenticated, upload.single('designFile'), function (r
         });
     }
 });
+app.get('/download/:fileId', checkAuthenticated, function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+    var fileId, e_1;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                fileId = req.params.fileId;
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 3, , 4]);
+                return [4 /*yield*/, db.query('SELECT * FROM files WHERE id = $1', [fileId], function (err, result) {
+                        var file = result.rows[0];
+                        var path = __dirname + '\\' + file.location;
+                        res.setHeader('Content-Disposition', 'attachment; filename=' + __dirname + '\\' + result.rows[0].filename);
+                        res.download(path, function (err) {
+                            if (err)
+                                throw err;
+                        });
+                        db.query("UPDATE files SET downloads = $1 WHERE id = $2", [file.downloads + 1, fileId], function (err, res3) {
+                            if (err) {
+                                console.error(err);
+                            }
+                            console.log('download record updated');
+                        });
+                    })];
+            case 2:
+                _a.sent();
+                return [3 /*break*/, 4];
+            case 3:
+                e_1 = _a.sent();
+                console.log(e_1);
+                return [3 /*break*/, 4];
+            case 4: return [2 /*return*/];
+        }
+    });
+}); });
+app.get('/sendEmail/:fileId', checkAuthenticated, function (req, res) {
+    var fileId = req.params.fileId;
+    res.render('sendEmail', {
+        name: req.user.name,
+        isAdmin: req.user.admin_status,
+        title: 'tbh'
+    });
+});
 app.post("/signup", checkNotAuthenticated, function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-    var hash, e_1;
+    var hash, e_2;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -166,8 +204,8 @@ app.post("/signup", checkNotAuthenticated, function (req, res) { return __awaite
                 res.render('index');
                 return [3 /*break*/, 4];
             case 3:
-                e_1 = _a.sent();
-                console.log(e_1);
+                e_2 = _a.sent();
+                console.log(e_2);
                 return [3 /*break*/, 4];
             case 4: return [2 /*return*/];
         }
