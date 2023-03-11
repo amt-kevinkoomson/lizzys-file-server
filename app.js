@@ -46,6 +46,14 @@ var bcrypt = require('bcrypt');
 var passport = require('passport');
 var flash = require('express-flash');
 var session = require('express-session');
+var nodemailer = require('nodemailer');
+var transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: 'akme.africa15@gmail.com',
+        pass: process.env.MAILER_PASS
+    }
+});
 var multer = require('multer');
 var fileStorageEngine = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -81,17 +89,17 @@ app.post("/", passport.authenticate('local', {
 }));
 app.get("/", checkNotAuthenticated, function (req, res) {
     console.log("GET /");
-    res.render('index');
+    res.render('index', { success: null });
 });
 app.get("/dashboard", checkAuthenticated, function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-    var adminStatus, files;
+    var adminStatus;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
                 console.log("GET dashboard");
                 adminStatus = req.user.admin_status;
                 return [4 /*yield*/, db.query("SELECT * FROM files ORDER BY downloads DESC", function (err, res2) {
-                        files = res2.rows;
+                        var files = res2.rows;
                         res.render('dashboard', {
                             name: req.user.name,
                             isAdmin: adminStatus,
@@ -104,8 +112,47 @@ app.get("/dashboard", checkAuthenticated, function (req, res) { return __awaiter
         }
     });
 }); });
+app.get('/search', checkAuthenticated, function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+    var query, e_1;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                query = req.query.q;
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 3, , 5]);
+                return [4 /*yield*/, db.query("SELECT * FROM files WHERE title ILIKE $1", ['%' + query + '%'], function (err, result) {
+                        if (err)
+                            throw err;
+                        var files = result.rows;
+                        res.render('search-results', {
+                            name: req.user.name,
+                            isAdmin: req.user.admin_status,
+                            items: files
+                        });
+                    })];
+            case 2:
+                _a.sent();
+                return [3 /*break*/, 5];
+            case 3:
+                e_1 = _a.sent();
+                console.log(e_1);
+                return [4 /*yield*/, db.query("SELECT * FROM files ORDER BY downloads DESC", function (err, res2) {
+                        var files = res2.rows;
+                        res.render('dashboard', {
+                            name: req.user.name,
+                            isAdmin: req.user.admin_status,
+                            items: files
+                        });
+                    })];
+            case 4:
+                _a.sent();
+                return [3 /*break*/, 5];
+            case 5: return [2 /*return*/];
+        }
+    });
+}); });
 app.get("/signup", checkNotAuthenticated, function (req, res) {
-    console.log('GET /signup');
     res.render('signup');
 });
 app.get("/upload", checkAuthenticated, function (req, res) {
@@ -142,7 +189,7 @@ app.post("/upload", checkAuthenticated, upload.single('designFile'), function (r
     }
 });
 app.get('/download/:fileId', checkAuthenticated, function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-    var fileId, e_1;
+    var fileId, e_2;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -169,8 +216,8 @@ app.get('/download/:fileId', checkAuthenticated, function (req, res) { return __
                 _a.sent();
                 return [3 /*break*/, 4];
             case 3:
-                e_1 = _a.sent();
-                console.log(e_1);
+                e_2 = _a.sent();
+                console.log(e_2);
                 return [3 /*break*/, 4];
             case 4: return [2 /*return*/];
         }
@@ -178,14 +225,245 @@ app.get('/download/:fileId', checkAuthenticated, function (req, res) { return __
 }); });
 app.get('/sendEmail/:fileId', checkAuthenticated, function (req, res) {
     var fileId = req.params.fileId;
-    res.render('sendEmail', {
-        name: req.user.name,
-        isAdmin: req.user.admin_status,
-        title: 'tbh'
+    try {
+        db.query("SELECT title FROM files WHERE id = $1", [fileId], function (err, result) {
+            if (err)
+                throw err;
+            res.render('sendEmail', {
+                name: req.user.name,
+                isAdmin: req.user.admin_status,
+                title: result.rows[0].title,
+                id: fileId,
+                code: null
+            });
+        });
+    }
+    catch (e) {
+        console.log(e);
+    }
+});
+app.post('/sendEmail/:id', checkAuthenticated, function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+    var _this = this;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0: return [4 /*yield*/, db.query("SELECT * FROM files WHERE id = $1", [req.params.id], function (err, result) {
+                    var recipientEmail = req.body.recipientEmail;
+                    var subject = req.body.subject;
+                    var message = req.body.message;
+                    var filePath = '.\\' + result.rows[0].location;
+                    var fileName = result.rows[0].filename;
+                    var mailOptions = {
+                        from: 'akme.africa15@gmail.com',
+                        to: recipientEmail,
+                        subject: subject,
+                        text: message,
+                        attachments: [{
+                                filename: fileName,
+                                path: filePath
+                            }]
+                    };
+                    transporter.sendMail(mailOptions, function (err, info) { return __awaiter(_this, void 0, void 0, function () {
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (err)
+                                        throw err;
+                                    return [4 /*yield*/, db.query("UPDATE files SET sent = $1 WHERE id = $2", [result.rows[0].sent + 1, result.rows[0].id], function (e, res2) {
+                                            if (e)
+                                                throw e;
+                                            console.log(info);
+                                            res.render('sendEmail', {
+                                                name: req.user.name,
+                                                isAdmin: req.user.admin_status,
+                                                title: result.rows[0].title,
+                                                id: req.params.id,
+                                                code: 200
+                                            });
+                                        })];
+                                case 1:
+                                    _a.sent();
+                                    return [2 /*return*/];
+                            }
+                        });
+                    }); });
+                })];
+            case 1:
+                _a.sent();
+                return [2 /*return*/];
+        }
+    });
+}); });
+app.get('/forgot', function (req, res) {
+    res.render('forgot', {
+        code: null
     });
 });
+app.post('/forgot', function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+    var email, e_3;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                email = req.body.resetEmail;
+                console.log(email);
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 3, , 4]);
+                return [4 /*yield*/, db.query("SELECT * FROM users WHERE email = $1", [email], function (err, result1) {
+                        if (err) {
+                            throw err;
+                        }
+                        var user = result1.rows[0];
+                        if (user && user.email === email) {
+                            bcrypt.genSalt(10, function (err, salt) {
+                                if (err)
+                                    throw err;
+                                bcrypt.hash(email, salt, function (err, hash) {
+                                    if (err)
+                                        throw err;
+                                    var resetToken = removeSlash(hash);
+                                    var expirationDate = new Date();
+                                    expirationDate.setHours(expirationDate.getHours() + 1);
+                                    var expirationString = expirationDate.toISOString();
+                                    db.query("UPDATE users SET reset_token = $1, expiration = $2 WHERE id = $3", [resetToken, expirationString, user.id], function (err2, res2) {
+                                        if (err)
+                                            throw err2;
+                                    });
+                                    var mess = 'Please do not share the following link with anyone. This link expires after one hour. Please click the link to be redirected to a password reset page:' + '\n' + 'http://localhost:3000/reset/' + resetToken;
+                                    var mailOptions = {
+                                        to: email,
+                                        subject: 'Password Reset at lizzy\'s Designs',
+                                        text: mess
+                                    };
+                                    transporter.sendMail(mailOptions, function (err, info) {
+                                        if (err)
+                                            throw err;
+                                        console.log(info);
+                                        res.render('reset-sent', {
+                                            code: 200
+                                        });
+                                    });
+                                });
+                            });
+                        }
+                        else {
+                            console.log('wrong email');
+                            res.render('forgot', {
+                                code: 400
+                            });
+                        }
+                        ;
+                    })];
+            case 2:
+                _a.sent();
+                return [3 /*break*/, 4];
+            case 3:
+                e_3 = _a.sent();
+                console.log('error thrown');
+                console.log(e_3);
+                res.render('reset-sent', {
+                    code: 400,
+                    async: true
+                });
+                return [3 /*break*/, 4];
+            case 4: return [2 /*return*/];
+        }
+    });
+}); });
+app.get('/reset/:hash', function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+    var resetToken, e_4;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                resetToken = req.params.hash;
+                console.log(resetToken);
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 3, , 4]);
+                return [4 /*yield*/, db.query("SELECT * FROM users WHERE reset_token = $1", [resetToken], function (err, result) {
+                        if (err)
+                            throw err;
+                        var user = result.rows[0];
+                        if (!user)
+                            res.send('Invalid token');
+                        if (user && Date.now() <= user.expiration) {
+                            res.render('reset-form', { hash: resetToken });
+                        }
+                    })];
+            case 2:
+                _a.sent();
+                return [3 /*break*/, 4];
+            case 3:
+                e_4 = _a.sent();
+                console.log(e_4);
+                res.send('Something went wrong. Please try again or contact us');
+                return [3 /*break*/, 4];
+            case 4: return [2 /*return*/];
+        }
+    });
+}); });
+app.post('/reset/:hash', function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+    var hash, newPassword, e_5;
+    var _this = this;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                hash = req.params.hash;
+                newPassword = req.body.password2;
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 3, , 4]);
+                return [4 /*yield*/, db.query('SELECT * FROM users WHERE reset_token = $1', [hash], function (err, result) { return __awaiter(_this, void 0, void 0, function () {
+                        var user, hashPass;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (err)
+                                        throw err;
+                                    user = result.rows[0];
+                                    console.log(user);
+                                    if (!user) {
+                                        res.send('Invalid token');
+                                        return [2 /*return*/];
+                                    }
+                                    if (Date.now() >= user.expiration) {
+                                        res.send('The provided link has expired.');
+                                        return [2 /*return*/];
+                                    }
+                                    if (!(user.reset_token === hash && Date.now() <= user.expiration)) return [3 /*break*/, 2];
+                                    return [4 /*yield*/, bcrypt.hash(newPassword, 10)];
+                                case 1:
+                                    hashPass = _a.sent();
+                                    db.query('UPDATE users SET password = $1 WHERE reset_token = $2', [hashPass, hash], function (err2, result2) {
+                                        if (err2)
+                                            throw err2;
+                                        console.log('changed?');
+                                        var email = user.email;
+                                        db.query('UPDATE users SET reset_token = $1, expiration = $2 WHERE email = $3', [null, null, email], function (err3, res3) {
+                                            if (err3)
+                                                throw err3;
+                                            console.log('password reset success');
+                                            res.render('index', { success: 'Your password has been reset successfully. Please sign in' });
+                                        });
+                                    });
+                                    _a.label = 2;
+                                case 2: return [2 /*return*/];
+                            }
+                        });
+                    }); })];
+            case 2:
+                _a.sent();
+                return [3 /*break*/, 4];
+            case 3:
+                e_5 = _a.sent();
+                console.log(e_5);
+                res.send('Something went wrong. Please contact us');
+                return [3 /*break*/, 4];
+            case 4: return [2 /*return*/];
+        }
+    });
+}); });
 app.post("/signup", checkNotAuthenticated, function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-    var hash, e_2;
+    var hash, e_6;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -199,13 +477,12 @@ app.post("/signup", checkNotAuthenticated, function (req, res) { return __awaite
                 db.query("INSERT INTO users (name, email, password, admin_status) VALUES($1, $2, $3, $4)", [req.body.name, req.body.email, hash, false], function (err, res) {
                     if (err)
                         throw err;
-                    console.log(res);
                 });
-                res.render('index');
+                res.render('index', { success: 'Please check your email to verify your account' });
                 return [3 /*break*/, 4];
             case 3:
-                e_2 = _a.sent();
-                console.log(e_2);
+                e_6 = _a.sent();
+                console.log(e_6);
                 return [3 /*break*/, 4];
             case 4: return [2 /*return*/];
         }
@@ -225,20 +502,8 @@ function checkNotAuthenticated(req, res, next) {
         return res.redirect('/dashboard');
     next();
 }
-function getAdminStatus(email) {
-    return __awaiter(this, void 0, void 0, function () {
-        var status;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0: return [4 /*yield*/, db.query("SELECT admin_status FROM users WHERE email = $1", [email])];
-                case 1:
-                    status = _a.sent();
-                    if (status === 't')
-                        return [2 /*return*/, true];
-                    return [2 /*return*/, false];
-            }
-        });
-    });
+function removeSlash(inputString) {
+    return inputString.replace(/\//g, '');
 }
 app.listen(3000, function () {
     console.log('Server running on port 3000\n');

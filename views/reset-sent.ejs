@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Lizzy's Designs|| Password Reset</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-GLhlTQ8iRABdZLl6O3oVMWSktQOp6b7In1Zl3/Jr59b6EGGoI1aFkw7cmDA6j6gD" crossorigin="anonymous">
+    <link href="/styles.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="password-reset">
+        <% if (code === 200) { %>
+            <div class="alert alert-success">Please check your email and follow the given instructions to reset your password</div>
+        <% } %>
+        <% if (code === 300) { %>
+            <div class="alert alert-danger">We don't have a user by that email</div>
+        <% } %>
+        <% if (code === 400) { %>
+            <div class="alert alert-danger">Something went wrong. Please try again or contact us</div>
+        <% } %>
+        <div class="reset-submit">
+            <a href="/" class="link-primary">Homepage</a>
+        </div>
+    </div>
+</body>
