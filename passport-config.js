@@ -59,6 +59,9 @@ function initialize(passport) {
                             if (!coo) {
                                 return [2 /*return*/, done(null, false, { message: 'Incorrect password.' })];
                             }
+                            if (!result.rows[0].is_active) {
+                                return [2 /*return*/, done(null, false, { message: 'Please activate your account.' })];
+                            }
                             return [2 /*return*/, done(null, result.rows[0])];
                     }
                 });

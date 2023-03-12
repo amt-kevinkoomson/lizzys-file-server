@@ -1,8 +1,18 @@
-button.nav-link{
+* {
+    box-sizing: border-box;
+}
+
+
+body {
+    background-color: #FFFFFF;
+}
+
+button.nav-link {
     border: 0px;
     border-radius: 15px;
 }
-.upload-form{
+
+.upload-form {
     max-width: 90%;
     border: 2px solid rgb(220, 218, 218);
     border-radius: 10px;
@@ -11,30 +21,63 @@ button.nav-link{
     background-color: rgb(233, 217, 217);
     padding: 20px;
 }
-.upload-form button.btn-success{
+
+.upload-form button.btn-success {
     width: 200px;
     margin-left: auto;
     margin-right: auto;
 }
-.submit-btn{
+
+.submit-btn {
     display: flex;
     padding: 30px;
 }
-.files{
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-evenly;
-    background-color: rgb(233, 217, 217);
+
+.files {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    display: grid;
+    justify-content: center;
+    grid-template-columns: repeat(auto-fit, minmax(229px, 350px));row-gap: 40px;
+    padding-bottom: 60px;
+    background-color: white;
     padding: 20px;
+    margin: 0;
+    min-height: 80vh;
 }
-.card{
+.footer-container{
+    height: 120px;
+    width: 100%;
+    background: rgba(0, 71, 119);
+    display: flex;
+    align-content: center;
+    margin: 0px;
+}
+.footer{
+    width: 90%;
+    display: flex;
+    justify-content: space-between;
+    margin-top: 30px;
+    margin: 30px auto auto auto;
+}
+.footer-text{
+    height: 35px;
+    width: 89px;
+    color: #FFFFFF;
+}
+.card {
     width: 18rem;
-    background-color: peachpuff;
+    background-color: rgb(188, 210, 238);
+    min-height: 269px;
 }
-.card li, .card ul{
-    background-color: peachpuff;
+
+.card li,
+.card ul {
+    background-color: rgb(188, 210, 238);
     border-color: grey;
 }
-#hide{
+
+#hide {
     display: none;
 }

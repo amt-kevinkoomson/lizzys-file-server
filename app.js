@@ -89,7 +89,9 @@ app.post("/", passport.authenticate('local', {
 }));
 app.get("/", checkNotAuthenticated, function (req, res) {
     console.log("GET /");
-    res.render('index', { success: null });
+    res.render('index', {
+        success: null
+    });
 });
 app.get("/dashboard", checkAuthenticated, function (req, res) { return __awaiter(_this, void 0, void 0, function () {
     var adminStatus;
@@ -103,7 +105,8 @@ app.get("/dashboard", checkAuthenticated, function (req, res) { return __awaiter
                         res.render('dashboard', {
                             name: req.user.name,
                             isAdmin: adminStatus,
-                            items: files
+                            items: files,
+                            number: files.length
                         });
                     })];
             case 1:
@@ -142,7 +145,8 @@ app.get('/search', checkAuthenticated, function (req, res) { return __awaiter(_t
                         res.render('dashboard', {
                             name: req.user.name,
                             isAdmin: req.user.admin_status,
-                            items: files
+                            items: files,
+                            number: files.length
                         });
                     })];
             case 4:
@@ -328,7 +332,7 @@ app.post('/forgot', function (req, res) { return __awaiter(_this, void 0, void 0
                                         if (err)
                                             throw err2;
                                     });
-                                    var mess = 'Please do not share the following link with anyone. This link expires after one hour. Please click the link to be redirected to a password reset page:' + '\n' + 'http://localhost:3000/reset/' + resetToken;
+                                    var mess = 'Please do not share the following link with anyone. This link expires after one hour. Please click the link to be redirected to a password reset page:' + '\n' + 'http://192.168.100.19:3000/reset/' + resetToken;
                                     var mailOptions = {
                                         to: email,
                                         subject: 'Password Reset at lizzy\'s Designs',
@@ -386,7 +390,9 @@ app.get('/reset/:hash', function (req, res) { return __awaiter(_this, void 0, vo
                         if (!user)
                             res.send('Invalid token');
                         if (user && Date.now() <= user.expiration) {
-                            res.render('reset-form', { hash: resetToken });
+                            res.render('reset-form', {
+                                hash: resetToken
+                            });
                         }
                     })];
             case 2:
@@ -442,7 +448,9 @@ app.post('/reset/:hash', function (req, res) { return __awaiter(_this, void 0, v
                                             if (err3)
                                                 throw err3;
                                             console.log('password reset success');
-                                            res.render('index', { success: 'Your password has been reset successfully. Please sign in' });
+                                            res.render('index', {
+                                                success: 'Your password has been reset successfully. Please sign in'
+                                            });
                                         });
                                     });
                                     _a.label = 2;
@@ -463,26 +471,78 @@ app.post('/reset/:hash', function (req, res) { return __awaiter(_this, void 0, v
     });
 }); });
 app.post("/signup", checkNotAuthenticated, function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-    var hash, e_6;
+    var email, password, e_6;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
-                console.log("POST to /signup");
+                email = req.body.email;
+                return [4 /*yield*/, bcrypt.hash(req.body.password, 10)];
+            case 1:
+                password = _a.sent();
+                _a.label = 2;
+            case 2:
+                _a.trys.push([2, 4, , 5]);
+                return [4 /*yield*/, bcrypt.genSalt(10, function (err, salt) {
+                        if (err)
+                            throw err;
+                        bcrypt.hash(email, salt, function (err2, hash) {
+                            if (err2)
+                                throw err2;
+                            var activation = removeSlash(hash);
+                            db.query("INSERT INTO users (name, email, password, admin_status, is_active, activation) VALUES ($1, $2, $3, $4, $5, $6)", [req.body.name, email, password, false, false, activation], function (err4, result) {
+                                if (err4)
+                                    throw err4;
+                                console.log(result);
+                            });
+                            var mess = 'Please click the link to activate your account at Lizzy\'s designs:' + '\n' + 'http://192.168.100.19:3000/activate/' + activation;
+                            var mailOptions = {
+                                to: email,
+                                subject: 'Account activation at lizzy\'s Designs',
+                                text: mess
+                            };
+                            transporter.sendMail(mailOptions, function (err3, info) {
+                                if (err3)
+                                    throw err3;
+                                console.log(info);
+                                res.render('index', { success: 'Please check your mail for your account activation link' });
+                            });
+                        });
+                    })];
+            case 3:
+                _a.sent();
+                return [3 /*break*/, 5];
+            case 4:
+                e_6 = _a.sent();
+                console.log(e_6);
+                res.render('confirm', { text: 'Something went wrong. Please try again or contact us' });
+                return [3 /*break*/, 5];
+            case 5: return [2 /*return*/];
+        }
+    });
+}); });
+app.get('/activate/:hash', function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+    var hash, email, e_7;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                hash = req.params.hash;
+                console.log('active');
                 _a.label = 1;
             case 1:
                 _a.trys.push([1, 3, , 4]);
-                return [4 /*yield*/, bcrypt.hash(req.body.password, 10)];
+                return [4 /*yield*/, db.query('UPDATE users SET is_active = $1, activation = $2 WHERE activation = $3', [true, null, hash], function (err, result) {
+                        if (err)
+                            console.log(err);
+                        console.log(result);
+                        res.render('index', { success: 'Account successfully updated. Please sign in' });
+                    })];
             case 2:
-                hash = _a.sent();
-                db.query("INSERT INTO users (name, email, password, admin_status) VALUES($1, $2, $3, $4)", [req.body.name, req.body.email, hash, false], function (err, res) {
-                    if (err)
-                        throw err;
-                });
-                res.render('index', { success: 'Please check your email to verify your account' });
+                _a.sent();
                 return [3 /*break*/, 4];
             case 3:
-                e_6 = _a.sent();
-                console.log(e_6);
+                e_7 = _a.sent();
+                console.log(e_7);
+                res.render('confirm', { text: 'Something went wrong. Please try again or contact us' });
                 return [3 /*break*/, 4];
             case 4: return [2 /*return*/];
         }
