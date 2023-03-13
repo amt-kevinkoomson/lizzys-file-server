@@ -293,7 +293,7 @@ app.post('/forgot', async (req, res) => {
                                     if (err) throw err2;
                                 }
                             )
-                            const mess = 'Please do not share the following link with anyone. This link expires after one hour. Please click the link to be redirected to a password reset page:' + '\n' + 'http://192.168.100.19:3000/reset/' + resetToken;
+                            const mess = 'Please do not share the following link with anyone. This link expires after one hour. Please click the link to be redirected to a password reset page:' + '\n' + 'https://lizzys-designs.onrender.com/reset/' + resetToken;
                             const mailOptions = {
                                 to: email,
                                 subject: 'Password Reset at lizzy\'s Designs',
@@ -422,7 +422,7 @@ app.post("/signup", checkNotAuthenticated, async (req, res) => {
                         console.log(result);
                     }
                 )
-                const mess = 'Please click the link to activate your account at Lizzy\'s designs:' + '\n' + 'http://192.168.100.19:3000/activate/' + activation;
+                const mess = 'Please click the link to activate your account at Lizzy\'s designs:' + '\n' + 'https://lizzys-designs.onrender.com/activate/' + activation;
                 const mailOptions = {
                     to: email,
                     subject: 'Account activation at lizzy\'s Designs',

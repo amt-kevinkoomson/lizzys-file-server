@@ -332,7 +332,7 @@ app.post('/forgot', function (req, res) { return __awaiter(_this, void 0, void 0
                                         if (err)
                                             throw err2;
                                     });
-                                    var mess = 'Please do not share the following link with anyone. This link expires after one hour. Please click the link to be redirected to a password reset page:' + '\n' + 'http://192.168.100.19:3000/reset/' + resetToken;
+                                    var mess = 'Please do not share the following link with anyone. This link expires after one hour. Please click the link to be redirected to a password reset page:' + '\n' + 'https://lizzys-designs.onrender.com/reset/' + resetToken;
                                     var mailOptions = {
                                         to: email,
                                         subject: 'Password Reset at lizzy\'s Designs',
@@ -494,7 +494,7 @@ app.post("/signup", checkNotAuthenticated, function (req, res) { return __awaite
                                     throw err4;
                                 console.log(result);
                             });
-                            var mess = 'Please click the link to activate your account at Lizzy\'s designs:' + '\n' + 'http://192.168.100.19:3000/activate/' + activation;
+                            var mess = 'Please click the link to activate your account at Lizzy\'s designs:' + '\n' + 'https://lizzys-designs.onrender.com/activate/' + activation;
                             var mailOptions = {
                                 to: email,
                                 subject: 'Account activation at lizzy\'s Designs',
