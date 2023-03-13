@@ -126,7 +126,7 @@ app.get('/search', checkAuthenticated, function (req, res) { return __awaiter(_t
                 _a.trys.push([1, 3, , 5]);
                 return [4 /*yield*/, db.query("SELECT * FROM files WHERE title ILIKE $1", ['%' + query + '%'], function (err, result) {
                         if (err)
-                            throw err;
+                            console.log(err);
                         var files = result.rows;
                         res.render('search-results', {
                             name: req.user.name,
@@ -174,7 +174,7 @@ app.post("/upload", checkAuthenticated, upload.single('designFile'), function (r
     try {
         db.query("INSERT INTO files (location, added_by, downloads, sent, title, description, filename) VALUES($1, $2, $3, $4, $5, $6, $7)", [req.file.path, req.user.id, 0, 0, req.body.titleText, req.body.description, req.file.filename], function (err, res2) {
             if (err)
-                throw err;
+                console.log(err);
             console.log(res2.command + res2.oid + res2.rowCount);
             res.render('upload', {
                 name: req.user.name,
@@ -207,7 +207,7 @@ app.get('/download/:fileId', checkAuthenticated, function (req, res) { return __
                         res.setHeader('Content-Disposition', 'attachment; filename=' + __dirname + '\\' + result.rows[0].filename);
                         res.download(path, function (err) {
                             if (err)
-                                throw err;
+                                console.log(err);
                         });
                         db.query("UPDATE files SET downloads = $1 WHERE id = $2", [file.downloads + 1, fileId], function (err, res3) {
                             if (err) {
@@ -232,7 +232,7 @@ app.get('/sendEmail/:fileId', checkAuthenticated, function (req, res) {
     try {
         db.query("SELECT title FROM files WHERE id = $1", [fileId], function (err, result) {
             if (err)
-                throw err;
+                console.log(err);
             res.render('sendEmail', {
                 name: req.user.name,
                 isAdmin: req.user.admin_status,
@@ -271,10 +271,10 @@ app.post('/sendEmail/:id', checkAuthenticated, function (req, res) { return __aw
                             switch (_a.label) {
                                 case 0:
                                     if (err)
-                                        throw err;
+                                        console.log(err);
                                     return [4 /*yield*/, db.query("UPDATE files SET sent = $1 WHERE id = $2", [result.rows[0].sent + 1, result.rows[0].id], function (e, res2) {
                                             if (e)
-                                                throw e;
+                                                console.log(e);
                                             console.log(info);
                                             res.render('sendEmail', {
                                                 name: req.user.name,
@@ -314,23 +314,23 @@ app.post('/forgot', function (req, res) { return __awaiter(_this, void 0, void 0
                 _a.trys.push([1, 3, , 4]);
                 return [4 /*yield*/, db.query("SELECT * FROM users WHERE email = $1", [email], function (err, result1) {
                         if (err) {
-                            throw err;
+                            console.log(err);
                         }
                         var user = result1.rows[0];
                         if (user && user.email === email) {
-                            bcrypt.genSalt(10, function (err, salt) {
-                                if (err)
-                                    throw err;
-                                bcrypt.hash(email, salt, function (err, hash) {
-                                    if (err)
-                                        throw err;
+                            bcrypt.genSalt(10, function (err2, salt) {
+                                if (err2)
+                                    console.log(err2);
+                                bcrypt.hash(email, salt, function (err3, hash) {
+                                    if (err3)
+                                        console.log(err3);
                                     var resetToken = removeSlash(hash);
                                     var expirationDate = new Date();
                                     expirationDate.setHours(expirationDate.getHours() + 1);
                                     var expirationString = expirationDate.toISOString();
                                     db.query("UPDATE users SET reset_token = $1, expiration = $2 WHERE id = $3", [resetToken, expirationString, user.id], function (err2, res2) {
                                         if (err)
-                                            throw err2;
+                                            console.log(err2);
                                     });
                                     var mess = 'Please do not share the following link with anyone. This link expires after one hour. Please click the link to be redirected to a password reset page:' + '\n' + 'https://lizzys-designs.onrender.com/reset/' + resetToken;
                                     var mailOptions = {
@@ -340,7 +340,7 @@ app.post('/forgot', function (req, res) { return __awaiter(_this, void 0, void 0
                                     };
                                     transporter.sendMail(mailOptions, function (err, info) {
                                         if (err)
-                                            throw err;
+                                            console.log(err);
                                         console.log(info);
                                         res.render('reset-sent', {
                                             code: 200
@@ -385,7 +385,7 @@ app.get('/reset/:hash', function (req, res) { return __awaiter(_this, void 0, vo
                 _a.trys.push([1, 3, , 4]);
                 return [4 /*yield*/, db.query("SELECT * FROM users WHERE reset_token = $1", [resetToken], function (err, result) {
                         if (err)
-                            throw err;
+                            console.log(err);
                         var user = result.rows[0];
                         if (!user)
                             res.send('Invalid token');
@@ -424,7 +424,7 @@ app.post('/reset/:hash', function (req, res) { return __awaiter(_this, void 0, v
                             switch (_a.label) {
                                 case 0:
                                     if (err)
-                                        throw err;
+                                        console.log(err);
                                     user = result.rows[0];
                                     console.log(user);
                                     if (!user) {
@@ -441,12 +441,12 @@ app.post('/reset/:hash', function (req, res) { return __awaiter(_this, void 0, v
                                     hashPass = _a.sent();
                                     db.query('UPDATE users SET password = $1 WHERE reset_token = $2', [hashPass, hash], function (err2, result2) {
                                         if (err2)
-                                            throw err2;
+                                            console.log(err2);
                                         console.log('changed?');
                                         var email = user.email;
                                         db.query('UPDATE users SET reset_token = $1, expiration = $2 WHERE email = $3', [null, null, email], function (err3, res3) {
                                             if (err3)
-                                                throw err3;
+                                                console.log(err3);
                                             console.log('password reset success');
                                             res.render('index', {
                                                 success: 'Your password has been reset successfully. Please sign in'
@@ -484,14 +484,14 @@ app.post("/signup", checkNotAuthenticated, function (req, res) { return __awaite
                 _a.trys.push([2, 4, , 5]);
                 return [4 /*yield*/, bcrypt.genSalt(10, function (err, salt) {
                         if (err)
-                            throw err;
+                            console.log(err);
                         bcrypt.hash(email, salt, function (err2, hash) {
                             if (err2)
-                                throw err2;
+                                console.log(err2);
                             var activation = removeSlash(hash);
                             db.query("INSERT INTO users (name, email, password, admin_status, is_active, activation) VALUES ($1, $2, $3, $4, $5, $6)", [req.body.name, email, password, false, false, activation], function (err4, result) {
                                 if (err4)
-                                    throw err4;
+                                    console.log(err4);
                                 console.log(result);
                             });
                             var mess = 'Please click the link to activate your account at Lizzy\'s designs:' + '\n' + 'https://lizzys-designs.onrender.com/activate/' + activation;
@@ -502,7 +502,7 @@ app.post("/signup", checkNotAuthenticated, function (req, res) { return __awaite
                             };
                             transporter.sendMail(mailOptions, function (err3, info) {
                                 if (err3)
-                                    throw err3;
+                                    console.log(err3);
                                 console.log(info);
                                 res.render('index', { success: 'Please check your mail for your account activation link' });
                             });

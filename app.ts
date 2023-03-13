@@ -91,7 +91,7 @@ app.get('/search', checkAuthenticated, async (req, res) => {
             "SELECT * FROM files WHERE title ILIKE $1",
             ['%' + query + '%'],
             (err, result) => {
-                if (err) throw err;
+                if (err) console.log(err);
                 const files = result.rows;
                 res.render('search-results', {
                     name: req.user.name,
@@ -134,7 +134,7 @@ app.post("/upload", checkAuthenticated, upload.single('designFile'), (req, res) 
         db.query("INSERT INTO files (location, added_by, downloads, sent, title, description, filename) VALUES($1, $2, $3, $4, $5, $6, $7)",
             [req.file.path, req.user.id, 0, 0, req.body.titleText, req.body.description, req.file.filename],
             (err, res2) => {
-                if (err) throw err;
+                if (err)  console.log(err);
                 console.log(res2.command + res2.oid + res2.rowCount);
                 res.render('upload', {
                     name: req.user.name,
@@ -168,7 +168,7 @@ app.get('/download/:fileId', checkAuthenticated, async (req, res) => {
                 res.setHeader('Content-Disposition', 'attachment; filename=' + __dirname + '\\' + result.rows[0].filename);
 
                 res.download(path, (err) => {
-                    if (err) throw err;
+                    if (err) console.log(err);
                 });
                 db.query(
                     "UPDATE files SET downloads = $1 WHERE id = $2",
@@ -194,7 +194,7 @@ app.get('/sendEmail/:fileId', checkAuthenticated, (req, res) => {
             "SELECT title FROM files WHERE id = $1",
             [fileId],
             (err, result) => {
-                if (err) throw err;
+                if (err) console.log(err);
                 res.render('sendEmail', {
                     name: req.user.name,
                     isAdmin: req.user.admin_status,
@@ -234,12 +234,12 @@ app.post('/sendEmail/:id', checkAuthenticated, async (req, res) => {
                 }]
             };
             transporter.sendMail(mailOptions, async (err, info) => {
-                if (err) throw err;
+                if (err) console.log(err);
                 await db.query(
                     "UPDATE files SET sent = $1 WHERE id = $2",
                     [result.rows[0].sent + 1, result.rows[0].id],
                     (e, res2) => {
-                        if (e) throw e;
+                        if (e) console.log(e);
                         console.log(info);
                         res.render('sendEmail', {
                             name: req.user.name,
@@ -273,14 +273,14 @@ app.post('/forgot', async (req, res) => {
             [email],
             (err, result1) => {
                 if (err) {
-                    throw err;
+                    console.log(err);
                 }
                 let user = result1.rows[0];
                 if (user && user.email === email) {
-                    bcrypt.genSalt(10, (err, salt) => {
-                        if (err) throw err;
-                        bcrypt.hash(email, salt, (err, hash) => {
-                            if (err) throw err;
+                    bcrypt.genSalt(10, (err2, salt) => {
+                        if (err2) console.log(err2);
+                        bcrypt.hash(email, salt, (err3, hash) => {
+                            if (err3) console.log(err3);
                             const resetToken = removeSlash(hash);
 
                             const expirationDate = new Date();
@@ -290,7 +290,7 @@ app.post('/forgot', async (req, res) => {
                                 "UPDATE users SET reset_token = $1, expiration = $2 WHERE id = $3",
                                 [resetToken, expirationString, user.id],
                                 (err2, res2) => {
-                                    if (err) throw err2;
+                                    if (err) console.log( err2);
                                 }
                             )
                             const mess = 'Please do not share the following link with anyone. This link expires after one hour. Please click the link to be redirected to a password reset page:' + '\n' + 'https://lizzys-designs.onrender.com/reset/' + resetToken;
@@ -300,7 +300,7 @@ app.post('/forgot', async (req, res) => {
                                 text: mess
                             }
                             transporter.sendMail(mailOptions, (err, info) => {
-                                if (err) throw err;
+                                if (err) console.log( err);
                                 console.log(info);
                                 res.render('reset-sent', {
                                     code: 200
@@ -337,7 +337,7 @@ app.get('/reset/:hash', async (req, res) => {
             "SELECT * FROM users WHERE reset_token = $1",
             [resetToken],
             (err, result) => {
-                if (err) throw err;
+                if (err) console.log( err);
                 const user = result.rows[0];
                 if (!user) res.send('Invalid token');
                 if (user && Date.now() <= user.expiration) {
@@ -361,7 +361,7 @@ app.post('/reset/:hash', async (req, res) => {
             'SELECT * FROM users WHERE reset_token = $1',
             [hash],
             async (err, result) => {
-                if (err) throw err;
+                if (err) console.log( err);
                 const user = result.rows[0];
 
                 console.log(user);
@@ -379,14 +379,14 @@ app.post('/reset/:hash', async (req, res) => {
                         'UPDATE users SET password = $1 WHERE reset_token = $2',
                         [hashPass, hash],
                         (err2, result2) => {
-                            if (err2) throw err2;
+                            if (err2) console.log( err2);
                             console.log('changed?');
                             const email = user.email;
                             db.query(
                                 'UPDATE users SET reset_token = $1, expiration = $2 WHERE email = $3',
                                 [null, null, email],
                                 (err3, res3) => {
-                                    if (err3) throw err3;
+                                    if (err3) console.log( err3);
                                     console.log('password reset success');
                                     res.render('index', {
                                         success: 'Your password has been reset successfully. Please sign in'
@@ -410,15 +410,15 @@ app.post("/signup", checkNotAuthenticated, async (req, res) => {
     const password = await bcrypt.hash(req.body.password, 10);
     try {
         await bcrypt.genSalt(10, (err, salt) => {
-            if(err) throw err;
+            if(err) console.log(err);
             bcrypt.hash(email, salt, (err2, hash) => {
-                if (err2) throw err2;
+                if (err2) console.log(err2);
                 const activation = removeSlash(hash);
                 db.query(
                     "INSERT INTO users (name, email, password, admin_status, is_active, activation) VALUES ($1, $2, $3, $4, $5, $6)",
                     [ req.body.name, email, password, false, false, activation ],
                     (err4, result) => {
-                        if (err4) throw err4;
+                        if (err4) console.log( err4);
                         console.log(result);
                     }
                 )
@@ -429,7 +429,7 @@ app.post("/signup", checkNotAuthenticated, async (req, res) => {
                     text: mess
                 }
                 transporter.sendMail(mailOptions, (err3, info) => {
-                    if (err3) throw err3;
+                    if (err3) console.log( err3);
                     console.log(info);
                     res.render('index', { success: 'Please check your mail for your account activation link' });
                 })
