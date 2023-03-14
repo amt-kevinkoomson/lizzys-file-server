@@ -66,8 +66,6 @@ var fileStorageEngine = multer.diskStorage({
 var upload = multer({
     storage: fileStorageEngine
 });
-var initializePassport = require('./passport-config');
-app.set('view engine', 'ejs');
 app.use(bodyParser.urlencoded({
     extended: true
 }));
@@ -78,6 +76,8 @@ app.use(session({
     resave: false,
     saveUninitialized: false
 }));
+var initializePassport = require('./passport-config');
+app.set('view engine', 'ejs');
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(methodOverride('_method'));
@@ -565,6 +565,7 @@ function checkNotAuthenticated(req, res, next) {
 function removeSlash(inputString) {
     return inputString.replace(/\//g, '');
 }
-app.listen(3000, function () {
-    console.log('Server running on port 3000\n');
+var port = process.env.PORT || 3000;
+app.listen(port, function () {
+    console.log('Server running on port ' + port);
 });

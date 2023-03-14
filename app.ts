@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const app = express();
 const methodOverride = require('method-override');
 const db = require('./db/index');
+
 db.connect();
 const bcrypt = require('bcrypt');
 const passport = require('passport');
@@ -34,9 +35,6 @@ const upload = multer({
 });
 
 
-const initializePassport = require('./passport-config');
-
-app.set('view engine', 'ejs');
 
 app.use(bodyParser.urlencoded({
     extended: true
@@ -48,6 +46,10 @@ app.use(session({
     resave: false,
     saveUninitialized: false
 }));
+
+const initializePassport = require('./passport-config');
+
+app.set('view engine', 'ejs');
 
 app.use(passport.initialize());
 app.use(passport.session());
@@ -480,7 +482,7 @@ function checkNotAuthenticated(req, res, next) {
 function removeSlash(inputString: string): string {
     return inputString.replace(/\//g, '');
 }
-
-app.listen(3000, () => {
-    console.log('Server running on port 3000\n');
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+    console.log('Server running on port '+port);
 });
