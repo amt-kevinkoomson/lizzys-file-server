@@ -5,7 +5,13 @@ const app = express();
 const methodOverride = require('method-override');
 const db = require('./db/index');
 
-db.connect();
+db.connect((err) => {
+    if (err) {
+        console.error('db connection error', err.stack)
+    } else {
+        console.log('connected to db')
+    }
+});
 const bcrypt = require('bcrypt');
 const passport = require('passport');
 const flash = require('express-flash');
@@ -33,7 +39,6 @@ const fileStorageEngine = multer.diskStorage({
 const upload = multer({
     storage: fileStorageEngine
 });
-
 
 
 app.use(bodyParser.urlencoded({
