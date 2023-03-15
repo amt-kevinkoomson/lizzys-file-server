@@ -4,6 +4,9 @@ const bodyParser = require('body-parser');
 const app = express();
 const methodOverride = require('method-override');
 const db = require('./db/index');
+const serverless = require('serverless-http');
+const router = express.Router();
+app.use('/', router);
 
 try {
     db.connect((err) => {
@@ -495,3 +498,5 @@ const port = process.env.PORT || 3000;
 app.listen(port, () => {
     console.log('Server running on port '+port);
 });
+
+module.exports.handler = serverless(app);
