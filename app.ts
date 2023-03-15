@@ -5,13 +5,17 @@ const app = express();
 const methodOverride = require('method-override');
 const db = require('./db/index');
 
-db.connect((err) => {
-    if (err) {
-        console.error('db connection error', err.stack)
-    } else {
-        console.log('connected to db')
-    }
-});
+try {
+    db.connect((err) => {
+        if (err) {
+            console.error('db connection error', err.stack)
+        } else {
+            console.log('connected to db')
+        }
+    });
+} catch(e) {
+    console.log(e);
+}
 const bcrypt = require('bcrypt');
 const passport = require('passport');
 const flash = require('express-flash');

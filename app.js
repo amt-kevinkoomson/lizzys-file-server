@@ -41,7 +41,19 @@ var bodyParser = require('body-parser');
 var app = express();
 var methodOverride = require('method-override');
 var db = require('./db/index');
-db.connect();
+try {
+    db.connect(function (err) {
+        if (err) {
+            console.error('db connection error', err.stack);
+        }
+        else {
+            console.log('connected to db');
+        }
+    });
+}
+catch (e) {
+    console.log(e);
+}
 var bcrypt = require('bcrypt');
 var passport = require('passport');
 var flash = require('express-flash');
