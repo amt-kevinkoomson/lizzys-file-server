@@ -231,7 +231,7 @@ app.post('/sendEmail/:id', checkAuthenticated, async (req, res) => {
             const subject = req.body.subject;
             const message = req.body.message;
 
-            const filePath = '.\\' + result.rows[0].location;
+            const filePath = './' + result.rows[0].location;
             const fileName = result.rows[0].filename;
 
             const mailOptions = {

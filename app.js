@@ -266,7 +266,7 @@ app.post('/sendEmail/:id', checkAuthenticated, function (req, res) { return __aw
                     var recipientEmail = req.body.recipientEmail;
                     var subject = req.body.subject;
                     var message = req.body.message;
-                    var filePath = '.\\' + result.rows[0].location;
+                    var filePath = './' + result.rows[0].location;
                     var fileName = result.rows[0].filename;
                     var mailOptions = {
                         from: 'akme.africa15@gmail.com',
