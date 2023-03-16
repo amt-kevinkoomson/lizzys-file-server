@@ -174,7 +174,7 @@ app.get('/download/:fileId', checkAuthenticated, async (req, res) => {
             [fileId],
             (err, result) => {
                 const file = result.rows[0];
-                const path = __dirname + '\\' + file.location;
+                const path = __dirname + '/' + file.location;
 
                 res.setHeader('Content-Disposition', 'attachment; filename=' + __dirname + '\\' + result.rows[0].filename);
 

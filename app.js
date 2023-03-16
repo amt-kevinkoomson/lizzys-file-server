@@ -215,7 +215,7 @@ app.get('/download/:fileId', checkAuthenticated, function (req, res) { return __
                 _a.trys.push([1, 3, , 4]);
                 return [4 /*yield*/, db.query('SELECT * FROM files WHERE id = $1', [fileId], function (err, result) {
                         var file = result.rows[0];
-                        var path = __dirname + '\\' + file.location;
+                        var path = __dirname + '/' + file.location;
                         res.setHeader('Content-Disposition', 'attachment; filename=' + __dirname + '\\' + result.rows[0].filename);
                         res.download(path, function (err) {
                             if (err)
