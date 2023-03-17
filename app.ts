@@ -13,13 +13,22 @@ try {
             console.log('connected to db')
         }
     });
-} catch(e) {
+} catch (e) {
     console.log(e);
 }
 const bcrypt = require('bcrypt');
 const passport = require('passport');
 const flash = require('express-flash');
 const session = require('express-session');
+
+const {
+    S3Client,
+    PutObjectCommand,
+    GetObjectCommand
+} = require("@aws-sdk/client-s3");
+const s3 = new S3Client({
+    region: 'us-west-2'
+});
 
 
 const nodemailer = require('nodemailer');
@@ -32,18 +41,13 @@ const transporter = nodemailer.createTransport({
 });
 
 const multer = require('multer');
-const fileStorageEngine = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, './uploads')
-    },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + '--' + file.originalname)
+const storage = multer.memoryStorage();
+const upload = multer({
+    storage: storage,
+    limits: {
+        fileSize: 5 * 1024 * 1024
     }
 })
-const upload = multer({
-    storage: fileStorageEngine
-});
-
 
 app.use(bodyParser.urlencoded({
     extended: true
@@ -138,32 +142,49 @@ app.get("/upload", checkAuthenticated, (req, res) => {
     });
 });
 
-app.post("/upload", checkAuthenticated, upload.single('designFile'), (req, res) => {
+app.post("/upload", checkAuthenticated, upload.single('designFile'), async (req, res) => {
     console.log(req.file);
-    console.log(req.user.id);
+    console.log(req.user.id + 'hello');
+    const params = {
+        "Bucket": "lizzyserverphase3", // The name of the bucket. For example, 'sample-bucket-101'.
+        "Key": req.file.originalname, // The name of the object. For example, 'sample_upload.txt'.
+        "Body": req.file.buffer, // The content of the object. For example, 'Hello world!".
+    };
     try {
-        db.query("INSERT INTO files (location, added_by, downloads, sent, title, description, filename) VALUES($1, $2, $3, $4, $5, $6, $7)",
-            [req.file.path, req.user.id, 0, 0, req.body.titleText, req.body.description, req.file.filename],
-            (err, res2) => {
-                if (err)  console.log(err);
-                console.log(res2.command + res2.oid + res2.rowCount);
-                res.render('upload', {
-                    name: req.user.name,
-                    isAdmin: req.user.admin_status,
-                    code: res.statusCode,
+        const results = await s3.send(new PutObjectCommand(params));
+        console.log('Object created ' + params.Key + 'uploaded to ' + params.Bucket);
+        console.log(results);
 
-                });
+        await db.query("INSERT INTO files (location, added_by, downloads, sent, title, description, filename) VALUES($1, $2, $3, $4, $5, $6, $7)",
+            [null, req.user.id, 0, 0, req.body.titleText, req.body.description, req.file.originalname],
+            (error, dbres) => {
+                if (error) {
+                    console.log(error);
+                    res.render('upload', {
+                        name: req.user.name,
+                        isAdmin: req.user.admin_status,
+                        code: 400,
+                    });
+                } else {
+                    console.log('added to db');
+                    res.render('upload', {
+                        name: req.user.name,
+                        isAdmin: req.user.admin_status,
+                        code: 200,
+                    });
+                }
+
             }
         )
-    } catch (e) {
-        console.log(e);
-        res.render('upload', {
-            name: req.user.name,
-            isAdmin: req.user.admin_status,
-            code: null,
 
-        });
+    } catch (e) {
+        console.log('error', e);
     }
+    /**
+     * upload file to bucket
+     * store name and details to db
+     * 
+     */
 });
 
 app.get('/download/:fileId', checkAuthenticated, async (req, res) => {
@@ -172,25 +193,31 @@ app.get('/download/:fileId', checkAuthenticated, async (req, res) => {
         await db.query(
             'SELECT * FROM files WHERE id = $1',
             [fileId],
-            (err, result) => {
-                const file = result.rows[0];
-                const path = __dirname + '/' + file.location;
-
-                res.setHeader('Content-Disposition', 'attachment; filename=' + __dirname + '\\' + result.rows[0].filename);
-
-                res.download(path, (err) => {
-                    if (err) console.log(err);
-                });
-                db.query(
-                    "UPDATE files SET downloads = $1 WHERE id = $2",
-                    [file.downloads + 1, fileId],
-                    (err, res3) => {
-                        if (err) {
-                            console.error(err);
-                        }
-                        console.log('download record updated');
+            async (err, result) => {
+                if (err) console.log(err)
+                else {
+                    const file = result.rows[0];
+                    const input = {
+                        "Bucket": "lizzyserverphase3",
+                        "Key": file.filename
                     }
-                )
+                    const command = new GetObjectCommand(input);
+                    const data = await s3.send(command);
+                    //process data, if status code is 200, add to database and then set headers and  download
+                    console.log(data);
+                    await db.query(
+                        "UPDATE files SET downloads = $1 WHERE id = $2",
+                        [file.downloads + 1, fileId],
+                        (err, res3) => {
+                            if (err) {
+                                console.error(err);
+                            } else console.log(res3 + '\ndownload record updated');
+                        }
+                    )
+                    res.setHeader('Content-disposition', `attachment; filename=${input.Key}`);
+                    res.setHeader('Content-type', data.ContentType);
+                    data.Body.pipe(res);
+                }
             }
         )
     } catch (e) {
@@ -225,14 +252,23 @@ app.post('/sendEmail/:id', checkAuthenticated, async (req, res) => {
     await db.query(
         "SELECT * FROM files WHERE id = $1",
         [req.params.id],
-        (err, result) => {
+        async (err, result) => {
 
             const recipientEmail = req.body.recipientEmail;
             const subject = req.body.subject;
             const message = req.body.message;
-
-            const filePath = './' + result.rows[0].location;
+            const file = result.rows[0];
+            
             const fileName = result.rows[0].filename;
+            /**get file from s3 */
+            const input = {
+                "Bucket": "lizzyserverphase3",
+                "Key": file.filename
+            }
+            const command = new GetObjectCommand(input);
+            const data = await s3.send(command);
+            //process data, if status code is 200, add to database and then set headers and  download
+            console.log(data);
 
             const mailOptions = {
                 from: 'akme.africa15@gmail.com',
@@ -241,7 +277,7 @@ app.post('/sendEmail/:id', checkAuthenticated, async (req, res) => {
                 text: message,
                 attachments: [{
                     filename: fileName,
-                    path: filePath
+                    content: data.Body.buffer
                 }]
             };
             transporter.sendMail(mailOptions, async (err, info) => {
@@ -301,7 +337,7 @@ app.post('/forgot', async (req, res) => {
                                 "UPDATE users SET reset_token = $1, expiration = $2 WHERE id = $3",
                                 [resetToken, expirationString, user.id],
                                 (err2, res2) => {
-                                    if (err) console.log( err2);
+                                    if (err) console.log(err2);
                                 }
                             )
                             const mess = 'Please do not share the following link with anyone. This link expires after one hour. Please click the link to be redirected to a password reset page:' + '\n' + 'https://lizzys-designs.onrender.com/reset/' + resetToken;
@@ -311,7 +347,7 @@ app.post('/forgot', async (req, res) => {
                                 text: mess
                             }
                             transporter.sendMail(mailOptions, (err, info) => {
-                                if (err) console.log( err);
+                                if (err) console.log(err);
                                 console.log(info);
                                 res.render('reset-sent', {
                                     code: 200
@@ -348,7 +384,7 @@ app.get('/reset/:hash', async (req, res) => {
             "SELECT * FROM users WHERE reset_token = $1",
             [resetToken],
             (err, result) => {
-                if (err) console.log( err);
+                if (err) console.log(err);
                 const user = result.rows[0];
                 if (!user) res.send('Invalid token');
                 if (user && Date.now() <= user.expiration) {
@@ -372,7 +408,7 @@ app.post('/reset/:hash', async (req, res) => {
             'SELECT * FROM users WHERE reset_token = $1',
             [hash],
             async (err, result) => {
-                if (err) console.log( err);
+                if (err) console.log(err);
                 const user = result.rows[0];
 
                 console.log(user);
@@ -390,14 +426,14 @@ app.post('/reset/:hash', async (req, res) => {
                         'UPDATE users SET password = $1 WHERE reset_token = $2',
                         [hashPass, hash],
                         (err2, result2) => {
-                            if (err2) console.log( err2);
+                            if (err2) console.log(err2);
                             console.log('changed?');
                             const email = user.email;
                             db.query(
                                 'UPDATE users SET reset_token = $1, expiration = $2 WHERE email = $3',
                                 [null, null, email],
                                 (err3, res3) => {
-                                    if (err3) console.log( err3);
+                                    if (err3) console.log(err3);
                                     console.log('password reset success');
                                     res.render('index', {
                                         success: 'Your password has been reset successfully. Please sign in'
@@ -421,15 +457,15 @@ app.post("/signup", checkNotAuthenticated, async (req, res) => {
     const password = await bcrypt.hash(req.body.password, 10);
     try {
         await bcrypt.genSalt(10, (err, salt) => {
-            if(err) console.log(err);
+            if (err) console.log(err);
             bcrypt.hash(email, salt, (err2, hash) => {
                 if (err2) console.log(err2);
                 const activation = removeSlash(hash);
                 db.query(
                     "INSERT INTO users (name, email, password, admin_status, is_active, activation) VALUES ($1, $2, $3, $4, $5, $6)",
-                    [ req.body.name, email, password, false, false, activation ],
+                    [req.body.name, email, password, false, false, activation],
                     (err4, result) => {
-                        if (err4) console.log( err4);
+                        if (err4) console.log(err4);
                         console.log(result);
                     }
                 )
@@ -440,16 +476,20 @@ app.post("/signup", checkNotAuthenticated, async (req, res) => {
                     text: mess
                 }
                 transporter.sendMail(mailOptions, (err3, info) => {
-                    if (err3) console.log( err3);
+                    if (err3) console.log(err3);
                     console.log(info);
-                    res.render('index', { success: 'Please check your mail for your account activation link' });
+                    res.render('index', {
+                        success: 'Please check your mail for your account activation link'
+                    });
                 })
             })
         })
-        
+
     } catch (e) {
         console.log(e);
-        res.render('confirm', { text: 'Something went wrong. Please try again or contact us' });
+        res.render('confirm', {
+            text: 'Something went wrong. Please try again or contact us'
+        });
     }
 });
 
@@ -460,16 +500,20 @@ app.get('/activate/:hash', async (req, res) => {
     try {
         await db.query(
             'UPDATE users SET is_active = $1, activation = $2 WHERE activation = $3',
-            [ true, null, hash ],
+            [true, null, hash],
             (err, result) => {
-                if(err) console.log(err);
+                if (err) console.log(err);
                 console.log(result);
-                res.render('index', { success: 'Account successfully updated. Please sign in' });
+                res.render('index', {
+                    success: 'Account successfully updated. Please sign in'
+                });
             }
         )
     } catch (e) {
         console.log(e);
-        res.render('confirm', { text: 'Something went wrong. Please try again or contact us' });
+        res.render('confirm', {
+            text: 'Something went wrong. Please try again or contact us'
+        });
     }
 })
 
@@ -493,5 +537,5 @@ function removeSlash(inputString: string): string {
 }
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-    console.log('Server running on port '+port);
+    console.log('Server running on port ' + port);
 });

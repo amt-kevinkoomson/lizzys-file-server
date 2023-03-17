@@ -58,6 +58,10 @@ var bcrypt = require('bcrypt');
 var passport = require('passport');
 var flash = require('express-flash');
 var session = require('express-session');
+var _a = require("@aws-sdk/client-s3"), S3Client = _a.S3Client, PutObjectCommand = _a.PutObjectCommand, GetObjectCommand = _a.GetObjectCommand;
+var s3 = new S3Client({
+    region: 'us-west-2'
+});
 var nodemailer = require('nodemailer');
 var transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -67,16 +71,12 @@ var transporter = nodemailer.createTransport({
     }
 });
 var multer = require('multer');
-var fileStorageEngine = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, './uploads');
-    },
-    filename: function (req, file, cb) {
-        cb(null, Date.now() + '--' + file.originalname);
-    }
-});
+var storage = multer.memoryStorage();
 var upload = multer({
-    storage: fileStorageEngine
+    storage: storage,
+    limits: {
+        fileSize: 5 * 1024 * 1024
+    }
 });
 app.use(bodyParser.urlencoded({
     extended: true
@@ -180,32 +180,58 @@ app.get("/upload", checkAuthenticated, function (req, res) {
             code: null
         });
 });
-app.post("/upload", checkAuthenticated, upload.single('designFile'), function (req, res) {
-    console.log(req.file);
-    console.log(req.user.id);
-    try {
-        db.query("INSERT INTO files (location, added_by, downloads, sent, title, description, filename) VALUES($1, $2, $3, $4, $5, $6, $7)", [req.file.path, req.user.id, 0, 0, req.body.titleText, req.body.description, req.file.filename], function (err, res2) {
-            if (err)
-                console.log(err);
-            console.log(res2.command + res2.oid + res2.rowCount);
-            res.render('upload', {
-                name: req.user.name,
-                isAdmin: req.user.admin_status,
-                code: res.statusCode
-            });
-        });
-    }
-    catch (e) {
-        console.log(e);
-        res.render('upload', {
-            name: req.user.name,
-            isAdmin: req.user.admin_status,
-            code: null
-        });
-    }
-});
+app.post("/upload", checkAuthenticated, upload.single('designFile'), function (req, res) { return __awaiter(_this, void 0, void 0, function () {
+    var params, results, e_2;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                console.log(req.file);
+                console.log(req.user.id + 'hello');
+                params = {
+                    "Bucket": "lizzyserverphase3",
+                    "Key": req.file.originalname,
+                    "Body": req.file.buffer
+                };
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 4, , 5]);
+                return [4 /*yield*/, s3.send(new PutObjectCommand(params))];
+            case 2:
+                results = _a.sent();
+                console.log('Object created ' + params.Key + 'uploaded to ' + params.Bucket);
+                console.log(results);
+                return [4 /*yield*/, db.query("INSERT INTO files (location, added_by, downloads, sent, title, description, filename) VALUES($1, $2, $3, $4, $5, $6, $7)", [null, req.user.id, 0, 0, req.body.titleText, req.body.description, req.file.originalname], function (error, dbres) {
+                        if (error) {
+                            console.log(error);
+                            res.render('upload', {
+                                name: req.user.name,
+                                isAdmin: req.user.admin_status,
+                                code: 400
+                            });
+                        }
+                        else {
+                            console.log('added to db');
+                            res.render('upload', {
+                                name: req.user.name,
+                                isAdmin: req.user.admin_status,
+                                code: 200
+                            });
+                        }
+                    })];
+            case 3:
+                _a.sent();
+                return [3 /*break*/, 5];
+            case 4:
+                e_2 = _a.sent();
+                console.log('error', e_2);
+                return [3 /*break*/, 5];
+            case 5: return [2 /*return*/];
+        }
+    });
+}); });
 app.get('/download/:fileId', checkAuthenticated, function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-    var fileId, e_2;
+    var fileId, e_3;
+    var _this = this;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -213,27 +239,49 @@ app.get('/download/:fileId', checkAuthenticated, function (req, res) { return __
                 _a.label = 1;
             case 1:
                 _a.trys.push([1, 3, , 4]);
-                return [4 /*yield*/, db.query('SELECT * FROM files WHERE id = $1', [fileId], function (err, result) {
-                        var file = result.rows[0];
-                        var path = __dirname + '/' + file.location;
-                        res.setHeader('Content-Disposition', 'attachment; filename=' + __dirname + '\\' + result.rows[0].filename);
-                        res.download(path, function (err) {
-                            if (err)
-                                console.log(err);
-                        });
-                        db.query("UPDATE files SET downloads = $1 WHERE id = $2", [file.downloads + 1, fileId], function (err, res3) {
-                            if (err) {
-                                console.error(err);
+                return [4 /*yield*/, db.query('SELECT * FROM files WHERE id = $1', [fileId], function (err, result) { return __awaiter(_this, void 0, void 0, function () {
+                        var file, input, command, data;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    if (!err) return [3 /*break*/, 1];
+                                    console.log(err);
+                                    return [3 /*break*/, 4];
+                                case 1:
+                                    file = result.rows[0];
+                                    input = {
+                                        "Bucket": "lizzyserverphase3",
+                                        "Key": file.filename
+                                    };
+                                    command = new GetObjectCommand(input);
+                                    return [4 /*yield*/, s3.send(command)];
+                                case 2:
+                                    data = _a.sent();
+                                    //process data, if status code is 200, add to database and then set headers and  download
+                                    console.log(data);
+                                    return [4 /*yield*/, db.query("UPDATE files SET downloads = $1 WHERE id = $2", [file.downloads + 1, fileId], function (err, res3) {
+                                            if (err) {
+                                                console.error(err);
+                                            }
+                                            else
+                                                console.log(res3 + '\ndownload record updated');
+                                        })];
+                                case 3:
+                                    _a.sent();
+                                    res.setHeader('Content-disposition', "attachment; filename=".concat(input.Key));
+                                    res.setHeader('Content-type', data.ContentType);
+                                    data.Body.pipe(res);
+                                    _a.label = 4;
+                                case 4: return [2 /*return*/];
                             }
-                            console.log('download record updated');
                         });
-                    })];
+                    }); })];
             case 2:
                 _a.sent();
                 return [3 /*break*/, 4];
             case 3:
-                e_2 = _a.sent();
-                console.log(e_2);
+                e_3 = _a.sent();
+                console.log(e_3);
                 return [3 /*break*/, 4];
             case 4: return [2 /*return*/];
         }
@@ -262,47 +310,65 @@ app.post('/sendEmail/:id', checkAuthenticated, function (req, res) { return __aw
     var _this = this;
     return __generator(this, function (_a) {
         switch (_a.label) {
-            case 0: return [4 /*yield*/, db.query("SELECT * FROM files WHERE id = $1", [req.params.id], function (err, result) {
-                    var recipientEmail = req.body.recipientEmail;
-                    var subject = req.body.subject;
-                    var message = req.body.message;
-                    var filePath = './' + result.rows[0].location;
-                    var fileName = result.rows[0].filename;
-                    var mailOptions = {
-                        from: 'akme.africa15@gmail.com',
-                        to: recipientEmail,
-                        subject: subject,
-                        text: message,
-                        attachments: [{
-                                filename: fileName,
-                                path: filePath
-                            }]
-                    };
-                    transporter.sendMail(mailOptions, function (err, info) { return __awaiter(_this, void 0, void 0, function () {
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    if (err)
-                                        console.log(err);
-                                    return [4 /*yield*/, db.query("UPDATE files SET sent = $1 WHERE id = $2", [result.rows[0].sent + 1, result.rows[0].id], function (e, res2) {
-                                            if (e)
-                                                console.log(e);
-                                            console.log(info);
-                                            res.render('sendEmail', {
-                                                name: req.user.name,
-                                                isAdmin: req.user.admin_status,
-                                                title: result.rows[0].title,
-                                                id: req.params.id,
-                                                code: 200
-                                            });
-                                        })];
-                                case 1:
-                                    _a.sent();
-                                    return [2 /*return*/];
-                            }
-                        });
-                    }); });
-                })];
+            case 0: return [4 /*yield*/, db.query("SELECT * FROM files WHERE id = $1", [req.params.id], function (err, result) { return __awaiter(_this, void 0, void 0, function () {
+                    var recipientEmail, subject, message, file, fileName, input, command, data, mailOptions;
+                    var _this = this;
+                    return __generator(this, function (_a) {
+                        switch (_a.label) {
+                            case 0:
+                                recipientEmail = req.body.recipientEmail;
+                                subject = req.body.subject;
+                                message = req.body.message;
+                                file = result.rows[0];
+                                fileName = result.rows[0].filename;
+                                input = {
+                                    "Bucket": "lizzyserverphase3",
+                                    "Key": file.filename
+                                };
+                                command = new GetObjectCommand(input);
+                                return [4 /*yield*/, s3.send(command)];
+                            case 1:
+                                data = _a.sent();
+                                //process data, if status code is 200, add to database and then set headers and  download
+                                console.log(data);
+                                mailOptions = {
+                                    from: 'akme.africa15@gmail.com',
+                                    to: recipientEmail,
+                                    subject: subject,
+                                    text: message,
+                                    attachments: [{
+                                            filename: fileName,
+                                            content: data.Body.buffer
+                                        }]
+                                };
+                                transporter.sendMail(mailOptions, function (err, info) { return __awaiter(_this, void 0, void 0, function () {
+                                    return __generator(this, function (_a) {
+                                        switch (_a.label) {
+                                            case 0:
+                                                if (err)
+                                                    console.log(err);
+                                                return [4 /*yield*/, db.query("UPDATE files SET sent = $1 WHERE id = $2", [result.rows[0].sent + 1, result.rows[0].id], function (e, res2) {
+                                                        if (e)
+                                                            console.log(e);
+                                                        console.log(info);
+                                                        res.render('sendEmail', {
+                                                            name: req.user.name,
+                                                            isAdmin: req.user.admin_status,
+                                                            title: result.rows[0].title,
+                                                            id: req.params.id,
+                                                            code: 200
+                                                        });
+                                                    })];
+                                            case 1:
+                                                _a.sent();
+                                                return [2 /*return*/];
+                                        }
+                                    });
+                                }); });
+                                return [2 /*return*/];
+                        }
+                    });
+                }); })];
             case 1:
                 _a.sent();
                 return [2 /*return*/];
@@ -315,7 +381,7 @@ app.get('/forgot', function (req, res) {
     });
 });
 app.post('/forgot', function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-    var email, e_3;
+    var email, e_4;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -373,9 +439,9 @@ app.post('/forgot', function (req, res) { return __awaiter(_this, void 0, void 0
                 _a.sent();
                 return [3 /*break*/, 4];
             case 3:
-                e_3 = _a.sent();
+                e_4 = _a.sent();
                 console.log('error thrown');
-                console.log(e_3);
+                console.log(e_4);
                 res.render('reset-sent', {
                     code: 400,
                     async: true
@@ -386,7 +452,7 @@ app.post('/forgot', function (req, res) { return __awaiter(_this, void 0, void 0
     });
 }); });
 app.get('/reset/:hash', function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-    var resetToken, e_4;
+    var resetToken, e_5;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -411,8 +477,8 @@ app.get('/reset/:hash', function (req, res) { return __awaiter(_this, void 0, vo
                 _a.sent();
                 return [3 /*break*/, 4];
             case 3:
-                e_4 = _a.sent();
-                console.log(e_4);
+                e_5 = _a.sent();
+                console.log(e_5);
                 res.send('Something went wrong. Please try again or contact us');
                 return [3 /*break*/, 4];
             case 4: return [2 /*return*/];
@@ -420,7 +486,7 @@ app.get('/reset/:hash', function (req, res) { return __awaiter(_this, void 0, vo
     });
 }); });
 app.post('/reset/:hash', function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-    var hash, newPassword, e_5;
+    var hash, newPassword, e_6;
     var _this = this;
     return __generator(this, function (_a) {
         switch (_a.label) {
@@ -474,8 +540,8 @@ app.post('/reset/:hash', function (req, res) { return __awaiter(_this, void 0, v
                 _a.sent();
                 return [3 /*break*/, 4];
             case 3:
-                e_5 = _a.sent();
-                console.log(e_5);
+                e_6 = _a.sent();
+                console.log(e_6);
                 res.send('Something went wrong. Please contact us');
                 return [3 /*break*/, 4];
             case 4: return [2 /*return*/];
@@ -483,7 +549,7 @@ app.post('/reset/:hash', function (req, res) { return __awaiter(_this, void 0, v
     });
 }); });
 app.post("/signup", checkNotAuthenticated, function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-    var email, password, e_6;
+    var email, password, e_7;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -516,7 +582,9 @@ app.post("/signup", checkNotAuthenticated, function (req, res) { return __awaite
                                 if (err3)
                                     console.log(err3);
                                 console.log(info);
-                                res.render('index', { success: 'Please check your mail for your account activation link' });
+                                res.render('index', {
+                                    success: 'Please check your mail for your account activation link'
+                                });
                             });
                         });
                     })];
@@ -524,16 +592,18 @@ app.post("/signup", checkNotAuthenticated, function (req, res) { return __awaite
                 _a.sent();
                 return [3 /*break*/, 5];
             case 4:
-                e_6 = _a.sent();
-                console.log(e_6);
-                res.render('confirm', { text: 'Something went wrong. Please try again or contact us' });
+                e_7 = _a.sent();
+                console.log(e_7);
+                res.render('confirm', {
+                    text: 'Something went wrong. Please try again or contact us'
+                });
                 return [3 /*break*/, 5];
             case 5: return [2 /*return*/];
         }
     });
 }); });
 app.get('/activate/:hash', function (req, res) { return __awaiter(_this, void 0, void 0, function () {
-    var hash, email, e_7;
+    var hash, email, e_8;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -546,15 +616,19 @@ app.get('/activate/:hash', function (req, res) { return __awaiter(_this, void 0,
                         if (err)
                             console.log(err);
                         console.log(result);
-                        res.render('index', { success: 'Account successfully updated. Please sign in' });
+                        res.render('index', {
+                            success: 'Account successfully updated. Please sign in'
+                        });
                     })];
             case 2:
                 _a.sent();
                 return [3 /*break*/, 4];
             case 3:
-                e_7 = _a.sent();
-                console.log(e_7);
-                res.render('confirm', { text: 'Something went wrong. Please try again or contact us' });
+                e_8 = _a.sent();
+                console.log(e_8);
+                res.render('confirm', {
+                    text: 'Something went wrong. Please try again or contact us'
+                });
                 return [3 /*break*/, 4];
             case 4: return [2 /*return*/];
         }
