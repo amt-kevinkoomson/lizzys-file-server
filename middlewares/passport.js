@@ -35,49 +35,55 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 var LocalStrategy = require('passport-local').Strategy;
-var db2 = require('./db/index');
-var bcrypt2 = require('bcrypt');
-function initialize(passport) {
+var bcrypt = require('bcrypt');
+function initialize(passport, getUserByEmail, getUserById) {
     var _this = this;
     var authenticateUser = function (email, password, done) { return __awaiter(_this, void 0, void 0, function () {
-        var _this = this;
+        var user, e_1;
         return __generator(this, function (_a) {
-            db2.query('SELECT * FROM users WHERE email = $1', [email], function (err, result) { return __awaiter(_this, void 0, void 0, function () {
-                var coo;
-                return __generator(this, function (_a) {
-                    switch (_a.label) {
-                        case 0:
-                            if (err) {
-                                return [2 /*return*/, done(err)];
-                            }
-                            if (!result.rows[0]) {
-                                return [2 /*return*/, done(null, false, { message: 'No user with that email.' })];
-                            }
-                            return [4 /*yield*/, bcrypt2.compare(password, result.rows[0].password)];
-                        case 1:
-                            coo = _a.sent();
-                            if (!coo) {
-                                return [2 /*return*/, done(null, false, { message: 'Incorrect password.' })];
-                            }
-                            if (!result.rows[0].is_active) {
-                                return [2 /*return*/, done(null, false, { message: 'Please activate your account.' })];
-                            }
-                            return [2 /*return*/, done(null, result.rows[0])];
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, getUserByEmail(email)];
+                case 1:
+                    user = _a.sent();
+                    // const user = result.rows[0];
+                    // console.log(user);
+                    if (user == null) {
+                        return [2 /*return*/, done(null, false, { message: 'No user with that email' })];
                     }
-                });
-            }); });
-            return [2 /*return*/];
+                    _a.label = 2;
+                case 2:
+                    _a.trys.push([2, 4, , 5]);
+                    return [4 /*yield*/, bcrypt.compare(password, user.password)];
+                case 3:
+                    if (_a.sent()) {
+                        return [2 /*return*/, done(null, user)];
+                    }
+                    else {
+                        return [2 /*return*/, done(null, false, { message: 'Password incorrect' })];
+                    }
+                    return [3 /*break*/, 5];
+                case 4:
+                    e_1 = _a.sent();
+                    return [2 /*return*/, done(e_1)];
+                case 5: return [2 /*return*/];
+            }
         });
     }); };
-    passport.use(new LocalStrategy({ usernameField: 'email' }, authenticateUser));
+    passport.use(new LocalStrategy({
+        usernameField: 'email'
+    }, authenticateUser));
     passport.serializeUser(function (user, done) { return done(null, user.id); });
-    passport.deserializeUser(function (id, done) {
-        db2.query('SELECT * FROM users WHERE id = $1', [id], function (err, result) {
-            if (err) {
-                return done(err);
+    passport.deserializeUser(function (id, done) { return __awaiter(_this, void 0, void 0, function () {
+        var _a, _b;
+        return __generator(this, function (_c) {
+            switch (_c.label) {
+                case 0:
+                    _a = done;
+                    _b = [null];
+                    return [4 /*yield*/, getUserById(id)];
+                case 1: return [2 /*return*/, _a.apply(void 0, _b.concat([_c.sent()]))];
             }
-            return done(null, result.rows[0]);
         });
-    });
+    }); });
 }
 module.exports = initialize;
